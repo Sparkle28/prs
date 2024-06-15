@@ -57,15 +57,15 @@ statistical learning,Big data essential etc.</font>
 
 + <font color= #DCDCDC>**Sealand Securities Co., Ltd.** 　　　　2024.05-Present
 
- Innovative Finance Department Intern - FOF Research Intern </font>
+  Innovative Finance Department Intern - FOF Research Intern </font>
 
-- <font color= #DCDCDC>**Tracking and analyzing the performance of private equity quantitative strategies**: Continuously track and analyze the performance, strategies, and factor exposures of invested and potentially invested products, and compile weekly automatic reports to efficiently reflect portfolio dynamics. Meanwhile, participate in daily monitoring to ensure that the operating status of invested projects meets expectations.</font>
+  - <font color= #DCDCDC>**Tracking and analyzing the performance of private equity quantitative strategies**: Continuously track and analyze the performance, strategies, and factor exposures of invested and potentially invested products, and compile weekly automatic reports to efficiently reflect portfolio dynamics. Meanwhile, participate in daily monitoring to ensure that the operating status of invested projects meets expectations.</font>
 
-- <font color= #DCDCDC>**Due diligence on private equity fund managers**: Before incorporating products into the investment portfolio, conduct comprehensive due diligence on the managers of proposed investment products, covering multiple dimensions such as management team background, investment strategies, historical performance, and compliance records.</font>
+  - <font color= #DCDCDC>**Due diligence on private equity fund managers**: Before incorporating products into the investment portfolio, conduct comprehensive due diligence on the managers of proposed investment products, covering multiple dimensions such as management team background, investment strategies, historical performance, and compliance records.</font>
 
-- <font color= #DCDCDC>**Research on private equity FOF investment system**: Involving asset allocation optimization, portfolio risk management, and adjustment strategies.</font>
+  - <font color= #DCDCDC>**Research on private equity FOF investment system**: Involving asset allocation optimization, portfolio risk management, and adjustment strategies.</font>
 
-- <font color= #DCDCDC>**Research and development of derivative trading strategies**: Apply machine learning technology to design high-frequency trading strategies for cross-species spreads targeting stock index futures.</font>
+  - <font color= #DCDCDC>**Research and development of derivative trading strategies**: Apply machine learning technology to design high-frequency trading strategies for cross-species spreads targeting stock index futures.</font>
 
 
 
