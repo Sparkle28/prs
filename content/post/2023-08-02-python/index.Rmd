@@ -1,0 +1,90 @@
+---
+title: Wind Client API使用笔记（一）：Python 异步编程 与回调函数
+author: 令纪泽
+date: '2023-08-02'
+slug: python，异步编程，回调函数
+categories: []
+tags:
+  - 异步编程
+---
+
+## 异步编程
+
+异步编程是一种编程模式，用于处理可能耗时的操作，如网络请求、文件读写、数据库查询等。在传统的同步编程中，程序会在执行一个操作时阻塞等待其完成，这样会导致程序在等待期间无法执行其他任务，造成资源的浪费和效率的降低。而异步编程则采用非阻塞的方式，允许程序在等待操作完成的同时继续执行其他任务，提高了程序的并发性和响应性。
+
+在异步编程中，操作通常会被封装成一个异步任务（也称为Future、Promise或Task），程序可以发起这个任务并立即继续执行其他操作，而不需要等待任务完成。当任务完成后，程序可以通过回调函数、事件或者轮询等方式获取操作的结果或者执行相应的处理逻辑。
+
+异步编程可以通过多线程、多进程、事件驱动等方式实现。常见的异步编程模型包括回调函数、协程、异步生成器等。在现代编程语言和框架中，通常提供了丰富的异步编程工具和语法糖，以简化异步编程的复杂性和提高开发效率。
+
+异步编程在处理大量并发请求和提高系统性能方面具有重要意义，特别是在网络通信、服务器开发、大数据处理等领域。它能够充分利用计算资源，提高程序的效率和响应速度，同时也能够更好地处理复杂的任务调度和资源管理问题。
+
+## 回调函数
+
+回调函数是一种编程模式，它是将一个函数作为参数传递给另一个函数，并在特定条件满足时被调用执行的函数。
+
+在编程中，回调函数常用于异步编程或事件驱动的场景中。当一个操作完成或事件发生时，调用方会触发回调函数，以便在特定的时机执行相应的逻辑。回调函数通常用于处理异步操作的结果、错误处理、事件处理等。
+
+使用回调函数的优点在于可以将程序的控制权交给被调用方，从而实现非阻塞的操作。通过回调函数，调用方可以继续执行其他任务，而不需要等待被调用方完成。这种方式可以提高程序的并发性和响应性，特别适用于处理大量并发请求或需要长时间等待的操作。
+
+回调函数可以是预定义的函数，也可以是匿名函数或闭包。在传递回调函数时，通常会将其作为参数传递给调用方的函数或方法，并在适当的时机调用执行。回调函数的参数通常是操作的结果或事件的相关信息，以便在回调函数中进行相应的处理。
+
+需要注意的是，回调函数的使用也可能导致代码的可读性和维护性下降，尤其是在多层嵌套的回调函数中。为了避免回调地狱（Callback Hell），可以使用一些异步编程的工具或技术，如Promise、async/await等，来简化异步操作和回调函数的处理。
+
+**简而言之，回调函数就是当对方服务器中的触发条件满足时，他的函数就会调用执行你编写的回调函数**
+
+## 用异步编程实现一个股票实时预警系统
+
+利用Wind Client API，在python 中
+
+`import WindPy`
+
+使用`wsq`函数实现对于实时行情的获取，`wsq`函数在输入的股票列表（第一个参数）的指标（第二个参数）变动时，会调用回调函数。
+
+因此，可以使用`wsq`函数来获取股票的跌幅，将跌幅作为参数传入回调函数，并作出相应的动作。在这里，我使用了发出声音来提醒，并且在打印屏幕上打印出相应的股票简称和实时跌幅。
+
+需要注意的是，在这种频繁调用的环境下，很可能发生内存不足的问题，因此，使用一个列表来缓解频繁调用的问题。
+
+源码如下：
+```{python eval=FALSE, echo=TRUE,python.reticulate = FALSE}
+
+from WindPy import w
+from IPython.display import clear_output as clear
+import winsound
+import os
+import time
+import pandas as pd
+
+w.start()
+
+def warning():
+    for i in range(6):
+        winsound.Beep(1500,200)
+        
+def get_stock_name(stock_code):
+    stock_name = w.wss(stock_code, "sec_name").Data[0][0]
+    return stock_name
+  
+warning_list = []
+
+def mcb_new(indata:w.WindData):
+    if indata.ErrorCode != 0:
+        print('error code:'+str(indata.ErrorCode)+'\n')
+        return None
+    for k in range(0,len(indata.Fields)):
+        if(indata.Fields[k] == "RT_PCT_CHG"):
+            lastvalue = indata.Data[k][0]
+            if lastvalue < -0.045 and get_stock_name(indata.Codes[k]) not in warning_list:
+                warning()
+                print(get_stock_name(indata.Codes[k]))
+                lastvalue = lastvalue * 100
+                print("{:.2f}%".format(lastvalue))
+                warning_list.append(get_stock_name(indata.Codes[k]))
+                time.sleep(2)
+                clear()
+                print(warning_list)
+                print("已预警个数：%d" % len(warning_list))
+                
+w.wsq("002027.SZ,002555.SZ", func=mcb_new)
+
+```
+

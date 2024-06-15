@@ -1,0 +1,187 @@
+---
+title: '基金研究笔记（四）：大类资产配置'
+author: '令纪泽'
+date: '2024-01-01'
+slug: ''
+categories:
+  - Work
+tags:
+  - 基金
+  - 资产配置
+---
+
+资产配置是指依据投资者的投资目标和风险偏好，在各类资产间分配资金的决策。典型的资产类别包括股票、债券、大宗商品及私募股权等另类资产。Brinson et al.(1991)的经典研究表明，资产配置决定了一个投资组合波动的90%甚至更多，这充分说明了资产配置在现代投资组合管理中的基石地位。若能进行恰当的管理，大类资产配置将为投资组合提供显著的超额收益。
+
+大类资产配置，实质上是通过在不同资产--不同的收益/风险来源之间做分散化投资，最大化投资收益，从而获取更优的长期风险调整后回报。从这个角度来看，Brinson et al.(1991)发现的大类资产配置对于投资组合长期绩效的决定性地位，是非常合情合理的。
+
+大类资产配置可以分为战略性资产配置和战术性资产配置。战略性资产配置基于较长周期的投资研究和决策，战术配置是在战略配置的基础之上基于短期趋势的研判，适当调整权重。
+
+目前，主要可以配置的大类资产包括权益、债券、黄金、货币。
+
++ 对于权益资产，考虑到当前公募基金持仓主要集中在中证800成分股中，同时中证800指数包含了沪深300、中证500的成分股，整体对于A股权益市场的代表性较强，因此选择中证800指数代表权益资产
++ 对于债券资产，选择覆盖面较广的中证全债指数代表债券资产
++ 对于黄金以及货币资产，分别选择当前存在流动性相对较好的场内基金所跟踪的SGE黄金、中证短融指数代表黄金资产以及货币资产。
+```{python echo=FALSE}
+import pandas as pd
+from sklearn.decomposition import PCA 
+
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+rcParams['font.family'] = 'SimSun'
+ 
+import numpy as np
+import cvxpy as cp 
+
+drr_dt = pd.read_csv("E:\学习资料\SASS\实习\基煜\大类资产.csv")
+drr_dt['Date'] = pd.to_datetime(drr_dt['Date'])
+drr_dt.set_index('Date',inplace = True)
+drr_dt = drr_dt.dropna()
+drr_dt = drr_dt / 100
+
+drr_train = drr_dt.loc[:'2023-01-01']
+drr_test = drr_dt.loc['2023-01-01':]
+
+num_assets = len(drr_dt.columns)
+```
+
+将整个策略回测区间固定在2016.01.01-2024.01.01。
+
+```{python echo=FALSE}
+def cal_unv_df(drr_df):
+    
+    unv_df = pd.DataFrame()
+    for asset in drr_df.columns:
+        unv_df[asset] = (drr_df[asset]+ 1).cumprod().shift(1)
+
+    unv_df = unv_df.fillna(1)
+    return(unv_df)
+  
+def calculate_max_drawdown(net_asset_values):
+    peak = net_asset_values[0]  
+    max_drawdown = 0  
+    for i in range(1, len(net_asset_values)):
+        if net_asset_values[i] > peak:
+            peak = net_asset_values[i]
+        else:
+            drawdown = (peak - net_asset_values[i]) / peak
+            if drawdown > max_drawdown:
+                max_drawdown = drawdown
+    return max_drawdown
+
+def calculate_annual_return_rate(net_asset_values,days_in_a_year = 360):
+    date_length = len(net_asset_values)
+    nav_start = net_asset_values[0]
+    nav_end = net_asset_values[-1]
+    arr = ((nav_end / nav_start) / nav_start - 1) * date_length / days_in_a_year
+    return arr
+
+def calculate_annualized_volatility(net_asset_values,days_in_a_year = 360):
+    avt = net_asset_values.pct_change().std() * np.sqrt(days_in_a_year)
+    return avt
+```
+
+
+# 战略配置模型：固定比例
+
+固定比例配置主要源于主观判断及投资管理目标，如设定固定比例模型的基准为：权益20%+债券70%+黄金5%+货币5%，那么整个区间的资产组合收益如下：
+
+```{python echo=FALSE}
+asset_ratio = pd.Series([0.2,0.7,0.05,0.05]) 
+
+fixed_train_unv = pd.DataFrame(cal_unv_df(drr_train).values @ asset_ratio.values.reshape(-1, 1),index= drr_train.index)[0]
+fixed_test_unv = pd.DataFrame(cal_unv_df(drr_test).values @ asset_ratio.values.reshape(-1, 1),index= drr_test.index)[0]
+
+
+plt.figure(figsize=(15,6))  
+plt.plot(fixed_train_unv.index,fixed_train_unv , linestyle='-')
+plt.plot(fixed_test_unv.index,fixed_test_unv , linestyle='-')
+
+plt.title('固定比例配置')  
+plt.xlabel('日期')  
+plt.ylabel('单位净值') 
+
+plt.show()
+
+print('配置比例：',asset_ratio.tolist())
+
+print('年化收益率是%s%%' % np.around(calculate_annual_return_rate(fixed_test_unv)*100,2))
+
+print('年化波动率是%s%%' % np.around(calculate_annualized_volatility(fixed_test_unv)*100,2))
+
+print('最大回撤是%s%%' % np.around(calculate_max_drawdown(fixed_test_unv)*100,2))
+```
+
+# 战略配置模型：风险平价模型
+
+风险平价模型是一种投资组合优化方法，旨在通过最小化组合的整体风险（通常以波动率或方差来衡量）来分配资产权重。主要步骤如下：
+
+1. 定义现金权重，由于现金几乎是无风险的资产，故现金不参与权重优化，否在大部分资产都会配置在现金中。不暴露风险则不会获得高收益。这里设置为0.1，表示投资组合中有10%的权重分配给现金。
+
+2. 计算协方差矩阵 cov_matrix，cov_matrix用于衡量资产之间的风险关联性。
+
+3. 使用cvxpy实现风险平价模型： 
+  - 定义优化问题的约束条件：确保除了现金权重外的所有资产权重之和等于90%（即1减去现金权重）：所有资产的权重都是非负的。
+  - 定义优化目标，使用cp.Minimize来最小化权重和协方差矩阵的二次形式，最小化投资组合的总体风险。
+
+4. 求解可得最优的权重。
+```{python}
+cash_weight = 0.1
+cov_matrix  = pd.DataFrame(drr_train.iloc[:,:3]).cov()
+weights = cp.Variable(num_assets - 1) 
+constraints = [cp.sum(weights) == (1 - cash_weight),
+              weights >= 0
+] 
+objective = cp.Minimize(cp.quad_form(weights, cov_matrix))  
+
+prob = cp.Problem(objective, constraints)  
+result = prob.solve()  
+
+optimal_weights = list(weights.value) + [cash_weight]
+# print('配置比例：',optimal_weights)
+asset_ratio = pd.Series(optimal_weights)
+```
+
+```{python echo=FALSE}
+fixed_train_unv = pd.DataFrame(cal_unv_df(drr_train).values @ asset_ratio.values.reshape(-1, 1),index= drr_train.index)[0]
+fixed_test_unv = pd.DataFrame(cal_unv_df(drr_test).values @ asset_ratio.values.reshape(-1, 1),index= drr_test.index)[0]
+
+
+plt.figure(figsize=(15,6))  
+plt.plot(fixed_train_unv.index,fixed_train_unv , linestyle='-')
+plt.plot(fixed_test_unv.index,fixed_test_unv , linestyle='-')
+
+plt.title('风险平价配置')  
+plt.xlabel('日期')  
+plt.ylabel('单位净值') 
+
+plt.show()
+
+print('配置比例：',asset_ratio.tolist())
+
+print('年化收益率是%s%%' % np.around(calculate_annual_return_rate(fixed_test_unv)*100,2))
+
+print('年化波动率是%s%%' % np.around(calculate_annualized_volatility(fixed_test_unv)*100,2))
+
+print('最大回撤是%s%%' % np.around(calculate_max_drawdown(fixed_test_unv)*100,2))
+
+```
+
+## 战略配置模型：风险平价模型变体——主成分风险平价
+
+```{python}
+cash_weight = 0.1
+
+pca_cov_matrix  = pd.DataFrame(drr_train.iloc[:,:3]).cov()
+weights = cp.Variable(num_assets - 1) 
+constraints = [cp.sum(weights) == (1 - cash_weight),
+              weights >= 0
+] 
+objective = cp.Minimize(cp.quad_form(weights, pca_cov_matrix))  
+
+prob = cp.Problem(objective, constraints)  
+result = prob.solve()  
+
+optimal_weights = list(weights.value) + [cash_weight]
+print(optimal_weights)
+```
+

@@ -1,0 +1,177 @@
+---
+title: 基金研究笔记（六）：基于机器学习的权益风格轮动与FOF增强
+author: 令纪泽
+date: '2024-02-15'
+slug: fof,ML
+categories:
+  - Work
+tags:
+  - 基金
+  - 资产配置
+  - 机器学习
+---
+
+上一篇提到的大类资产指数跟踪的FOF组合中权益部分直接使用了中证800指数进行跟踪。事实上，由于权益市场整体波动大，风格切换明显，若做一些策略改进，将比被动持有全市场指数增厚一部分收益。
+
+下面实现一个基于宏观数据驱动的机器学习市值轮动策略。基本原理是使用宏观数据让机器学习方法学习宏观数据与占优市值风格之间的关系，进而实现每月配置涨幅最大的市值指数，实现收益增强。
+
+宏观经济运行指标对于理解市场风格轮动（如大小盘、价值成长、动量反转等）具有关键作用，因其背后往往蕴含着深刻的经济逻辑。为避免数据挖掘的过度复杂化，我们将重点关注以下几类代表性宏观经济指标：
+
+**1. 经济增长类指标**
+
+- **PMI（采购经理人指数）系列**：包括PMI总指数、PMI生产指数、PMI新订单指数。这些指数作为经济运行的景气调查指标，具有一定的前瞻性和预警功能，能够反映制造业乃至整体经济的扩张或收缩趋势。
+
+- **工业增加值当月同比增速**：这是一个月度更新的综合性宏观经济指标，直接反映了工业生产活动的增长情况，是衡量经济运行即时状态的重要标尺。
+
+**2. 通胀类指标**
+
+- **CPI（居民消费价格指数）同比增速**：用于监测消费品和服务价格变化，是衡量通货膨胀水平的核心指标，直接影响货币政策决策与居民生活成本。
+
+- **PPI（生产者价格指数）同比增速**：反映生产环节价格变动，对上游行业利润水平和未来消费价格走势具有指示意义。
+
+**3. 流动性类指标**
+
+- **量的指标**：包括M1（狭义货币供应量）、M2（广义货币供应量）增速、M1与M2的差值（反映经济活跃度与资金流向）、人民币贷款余额增速以及社会融资规模增速。这些指标共同揭示货币供应总量及其结构变化，体现市场资金的充裕程度与信贷市场的活跃状况。
+
+- **价的指标**：涵盖1年期国债收益率、10年期国债收益率以及7天质押式回购利率等不同期限的利率水平。利率作为资金价格，反映市场资金供求关系和对未来经济预期，对资产定价具有直接影响。
+
+解释变量选取申万市值风格每月涨幅最大的指数名称，即在申万大盘指数 、申万中盘指数、申万小盘指数月涨幅最高者。
+
+``` python
+#创建一个分类数据集  
+X = macroeco_data.drop(['Y'],axis = 1)
+y = macroeco_data['Y']
+#划分训练集和测试集  
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)  
+```
+
+可以选用openfe来自动生成特征
+
+``` python
+import openfe as op
+ofe = op.OpenFE()
+features_X = ofe.fit(X,y,n_jobs=4)
+X_train,  X_test = op.transform(X_train,  X_test, features_X,n_jobs=4)
+```
+
+使用scikit-learn库来进行随机森林分类器（Random Forest Classifier）的随机搜索参数优化：
+
+1.  **初始化随机森林分类器**：创建了一个基本的随机森林分类器对象，该对象使用默认参数设置。
+
+2.  **配置随机搜索**：通过`RandomizedSearchCV`对象，配置了随机搜索的参数。这包括定义搜索空间（即参数的可能取值或分布）、交叉验证的折叠数、评估指标（这里使用的是准确率）、搜索的迭代次数以及并行计算的核心数等。
+
+3.  **执行随机搜索**：使用训练数据`X_train`和对应的标签`y_train`来拟合随机搜索对象。在这个过程中，随机搜索会尝试多种不同的参数组合，通过交叉验证来评估每种组合的性能，并记录最佳的参数设置。
+
+4.  **获取并打印最佳参数**：一旦随机搜索完成，代码会打印出搜索过程中找到的最佳参数组合。这些参数是在交叉验证下表现最好的参数设置，可以用于后续构建最终的随机森林分类器模型。
+
+``` python
+rf = RandomForestClassifier()
+
+random_search =RandomizedSearchCV(estimator=rf, param_distributions=param_distributions, n_iter=100, cv=5, scoring='accuracy', n_jobs=-1, random_state=42)
+
+
+# 训练模型
+random_search.fit(X_train, y_train)
+print("Best parameters found: ", random_search.best_params_)
+```
+
+`Best parameters found:  {'max_depth': 1, 'min_samples_split': 2, 'n_estimators': 382}`
+
+使用已经优化好的参数进行训练：
+
+1 **创建随机森林分类器**：
+使用`RandomForestClassifier`类，根据`best_params`字典中的参数值创建了一个新的随机森林分类器实例`best_rf`。这里使用了`**best_params`的语法，它表示将字典中的键值对作为命名参数传递给`RandomForestClassifier`的构造函数。同时，为了结果的可重复性，设置了`random_state=42`。
+
+2.  **拟合模型**：
+    使用整个数据集`X`和对应的标签`y`来拟合`best_rf`模型。
+
+3.  **进行预测**：
+    使用相同的数据集`X`（这里应该使用独立的测试集而不是训练集）作为输入，让`best_rf`模型进行预测，得到预测结果`y_pred`。
+
+4.  **计算准确率**：
+    使用`accuracy_score`函数计算预测结果`y_pred`和实际标签`y`之间的准确率。准确率是分类任务中常用的性能度量指标，表示正确分类的样本占总样本数的比例。
+
+5.  **输出分类报告**：
+    使用`classification_report`函数生成一个详细的分类报告，该报告包含每个类别的精确度、召回率、F1分数等信息。这有助于了解模型在不同类别上的表现。
+
+``` python
+# 获取最佳参数  
+best_params = {'max_depth': 1, 'min_samples_split': 2, 'n_estimators': 382}  
+  
+# 使用最佳参数创建新的随机森林分类器  
+best_rf = RandomForestClassifier(**best_params, random_state=42)  
+  
+# 使用训练数据拟合模型  
+best_rf.fit(X, y)  
+```
+
+<style>#sk-container-id-1 {color: black;background-color: white;}#sk-container-id-1 pre{padding: 0;}#sk-container-id-1 div.sk-toggleable {background-color: white;}#sk-container-id-1 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-1 label.sk-toggleable__label-arrow:before {content: "▸";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-1 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-1 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-1 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: "▾";}#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-1 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-1 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-1 div.sk-parallel-item::after {content: "";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-serial::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-1 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-1 div.sk-item {position: relative;z-index: 1;}#sk-container-id-1 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-1 div.sk-item::before, #sk-container-id-1 div.sk-parallel-item::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-1 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-1 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-1 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-1 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-1 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-1 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-1 div.sk-label-container {text-align: center;}#sk-container-id-1 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-1 div.sk-text-repr-fallback {display: none;}</style><div id="sk-container-id-1" class="sk-top-container"><div class="sk-text-repr-fallback"><pre>RandomForestClassifier(max_depth=1, n_estimators=382, random_state=42)</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class="sk-container" hidden><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-1" type="checkbox" checked><label for="sk-estimator-id-1" class="sk-toggleable__label sk-toggleable__label-arrow">RandomForestClassifier</label><div class="sk-toggleable__content"><pre>RandomForestClassifier(max_depth=1, n_estimators=382, random_state=42)</pre></div></div></div></div></div>
+
+``` python
+  
+# 使用测试数据进行预测  
+y_pred = best_rf.predict(X)  
+  
+# 计算准确率  
+accuracy = accuracy_score(y, y_pred)  
+print(f"Accuracy with best parameters: {accuracy:.4f}")  
+```
+
+    ## Accuracy with best parameters: 0.5893
+
+``` python
+  
+# 输出分类报告  
+report = classification_report(y, y_pred)  
+print(report)
+```
+
+    ##               precision    recall  f1-score   support
+    ## 
+    ##         中盘指数       0.00      0.00      0.00        12
+    ##         大盘指数       0.57      1.00      0.72        59
+    ##         小盘指数       0.88      0.17      0.29        41
+    ## 
+    ##     accuracy                           0.59       112
+    ##    macro avg       0.48      0.39      0.34       112
+    ## weighted avg       0.62      0.59      0.49       112
+
+*需要注意的是，这只是一个使用机器学习演示的案例，并没有对特征工程以及调参做出太多优化，不可直接用于模拟盘或实盘投资*
+
+这个报告显示了随机森林分类器在测试集上的性能评估结果。报告中的每一列代表了不同的评估指标，每一行则代表了不同的类别：
+
+1.  **Accuracy**: 这是模型正确分类的样本数占总样本数的比例。在你的例子中，模型的整体准确率是0.5982，这意味着模型大约正确分类了60%的样本。
+
+2.  **Precision（精确度）**: 对于每个类别，精确度是模型预测为正例的样本中真正为正例的比例。也就是说，它衡量了模型预测某个类别时的“准确性”。
+
+    - 中盘指数：模型没有预测出任何中盘指数样本，因此精确度为0。
+    - 大盘指数：模型预测为大盘指数的样本中，有57%是真正的大盘指数。
+    - 小盘指数：模型预测为小盘指数的样本中，有89%是真正的小盘指数。
+
+3.  **Recall（召回率）**: 对于每个类别，召回率是真正为正例的样本中被模型预测为正例的比例。它衡量了模型找到所有真正属于某个类别的样本的能力。
+
+    - 中盘指数：模型没有预测出任何中盘指数样本，因此召回率为0。
+    - 大盘指数：所有真正的大盘指数样本都被模型预测为大盘指数，召回率为100%。
+    - 小盘指数：只有20%的真正小盘指数样本被模型预测为小盘指数。
+
+4.  **F1-score**: F1分数是精确度和召回率的调和平均数，用于综合评估模型在某个类别上的性能。
+
+    - 中盘指数：由于精确度和召回率都是0，F1分数也是0。
+    - 大盘指数：F1分数为0.73，意味着模型在大盘指数类别上的性能相对较好。
+    - 小盘指数：F1分数为0.32，显示出模型在小盘指数类别上的性能较差。
+
+5.  **Support**: 这表示每个类别在测试集中出现的次数。
+
+    - 中盘指数：12次
+    - 大盘指数：59次
+    - 小盘指数：41次
+
+6.  **macro avg**: 这是对所有类别的精确度、召回率和F1分数的平均值，而不考虑每个类别的样本数量。这有助于了解模型在整体上的性能，不考虑类别不平衡的影响。
+
+7.  **weighted avg**: 这是根据每个类别在测试集中出现的频率来加权的平均值。它给出了一个关于模型整体性能的更准确的估计，考虑了类别不平衡。
+
+从报告中可以看出，模型在大盘指数类别上的性能相对较好，但在中盘指数和小盘指数类别上的性能较差。此外，模型的整体性能（准确率约为60%）可能还有提升的空间。需要尝试调整模型的参数，或者使用不同的特征集，以改善模型的性能。
+
+按照随机森林分类器的结果，对历史数据进行回测，对比中证800与市值轮动的净值，发现有了显著的增强
+
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="864" /><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-2.png" width="864" />

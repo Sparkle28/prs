@@ -1,0 +1,37 @@
+---
+title: R 爬虫初探
+author: 令纪泽
+date: '2023-03-10'
+slug: r
+categories:
+  - R application
+tags: []
+---
+
+## R scrap
+  提起爬虫，Python使用得最为广泛。在R中，`rvest`包类似于Python中的`Beautiful Soup`，提供了爬取静态网页的大多数操作，使得在R中获得互联网的数据更为方便快捷。
+  下面是一个小例子，爬取了链家在上海二手房信息的1~100页，并整理为一个数据表格。
+```{r}
+library(pacman)
+p_load(xml2,rvest,dplyr,stringr)
+house_info = data.frame()
+for (i in 1:100) {
+  web = read_html(str_c('https://sh.lianjia.com/ershoufang/pg',i))
+  title = web%>%html_nodes("#content > div.leftContent > ul > li > div.info.clear > div.title > a")%>%html_text()
+  location = web%>%html_nodes('#content > div.leftContent > ul > li > div.info.clear > div.flood > div')%>%html_text()
+  information = web%>%html_nodes('#content > div.leftContent > ul > li > div.info.clear > div.address > div')%>%html_text()
+  price = web%>%html_nodes('#content > div.leftContent > ul > li > div.info.clear > div.priceInfo > div.totalPrice.totalPrice2 > span')%>%html_text()
+  unit_price = web%>%html_nodes('#content > div.leftContent > ul > li > div.info.clear > div.priceInfo > div.unitPrice > span')%>%html_text()
+  focus = web%>%html_nodes('#content > div.leftContent > ul > li > div.info.clear > div.followInfo')%>%html_text()
+  house = data.frame(title,location,information,price,unit_price,focus)
+  house_info = rbind(house_info,house)
+}
+```
+
+## 爬到的数据
+```{r echo=FALSE}
+library(DT)
+datatable(house_info)
+```
+
+

@@ -1,0 +1,251 @@
+---
+title: 多元线性回归和违背基本假定的问题（多重共线性）
+author: 令纪泽
+date: '2023-03-23'
+slug: ''
+categories:
+  - presentation
+tags: []
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# 理论基础——多元线性回归
+## 多元线性回归的形式
+　　多元线性回归的一般形式为：
+$$Y=\beta_{0}+\beta_{1} X_{1}+\beta_{2} X_{2}+\cdots+\beta_{k} X_{k}+\mu $$
+　　总体回归形式为：
+$$\mathrm{E}\left(Y \mid X_{1}, X_{2}, \cdots, X_{k}\right)=\beta_{0}+\beta_{1} X_{1}+\beta_{2} X_{2}+\cdots+\beta_{k} X_{k}$$
+　　写为矩阵形式：
+$$Y = X\beta +\mu$$
+　　其中：
+$$\boldsymbol{Y}=\left(\begin{array}{c}
+Y_{1} \\
+Y_{2} \\
+\vdots \\
+Y_{n}
+\end{array}\right)_{n \times 1},\boldsymbol{X}=\left(\begin{array}{ccccc}
+1 & X_{11} & X_{12} & \cdots & X_{1 k} \\
+1 & X_{21} & X_{22} & \cdots & X_{2 k} \\
+\vdots & \vdots & \vdots & & \vdots \\
+1 & X_{n 1} & X_{n 2} & \cdots & X_{n k}
+\end{array}\right)_{n \times(k+1)}$$
+$$\boldsymbol{\beta}=\left(\begin{array}{c}
+\beta_{0} \\
+\beta_{1} \\
+\beta_{2} \\
+\vdots \\
+\beta_{k}
+\end{array}\right)_{(k+1) \times 1},\boldsymbol{\mu}=\left(\begin{array}{c}
+\mu_{1} \\
+\mu_{2} \\
+\vdots \\
+\mu_{n}
+\end{array}\right)_{n \times 1}$$
+
+　　故样本回归函数为：
+$$\boldsymbol{Y}=\boldsymbol{X}\boldsymbol{\hat{\beta}}+\boldsymbol{e}$$
+　　其中
+$$\boldsymbol{\hat{\beta}} = \left(\begin{array}{c}
+ \hat{\beta_0} \\
+\hat{\beta_1} \\
+\vdots \\
+\hat{\beta_n}
+\end{array}\right),\boldsymbol{e}=\left(\begin{array}{c}
+ e_1 \\
+e_2 \\
+\vdots \\
+e_n
+\end{array}\right)$$
+    多元回归的参数估计：OLS、LM： $\boldsymbol{\hat{\beta} = (X^TX)^{-1}X^TY}$ 
+    
+## 多元线性回归的基本假定
+
+- 假设1：回归模型是正确设定的。
+
+- 假设2：解释变量  $X_1,X_2\dots, X_k$  在所抽取的样本中具有变异性，且各 $X_j$ 之间不存在严格线性相关性（无完全多重共线性）。即 $R(\boldsymbol{X}) = k+1$ （满秩）
+
+- 假设3：随机干扰项具有条件零均值性 $E(μ_i|X_1,X_2,\dots,X_k)=0\quad\quad\quad\quad i=1,2,···,n$ 
+
+- 假设4：随机干扰项具有条件同方差及不序列相关性
+ $Var(μ_i|X_1,X_2,\dots,X_k)=\sigma^2 \quad\quad\quad\quad i=1,2,\dots,n$
+， $Cov(μ_i,μ_j|X_1,X_2,\dots,X_k)=0\quad\quad\quad\quad i≠j \quad i,j=1,2,\dots,n$ ，即$$Var(\boldsymbol{\mu|X}) = \begin{pmatrix}
+ \sigma^2 &\dots  &0 \\
+  \vdots&  &\vdots\ \\
+  0& \dots & \sigma^2
+\end{pmatrix}\\ = \sigma^2\boldsymbol{I}$$
+
+- 假设5：随机干扰项满足正态分布 $\boldsymbol{\mu|X} \sim N(\boldsymbol{0},\sigma^2\boldsymbol{I_n})$
+　　违背上述基本假设就会造成估计量不具备良好的性质：无偏性、有效性、一致性。
+
+# 违背多重共线性基本假定及其处理方法
+## 多重共线性的含义
+　　若某两个或多个解释变量之间存在相关性称为多重共线性。
+
+　　完全共线性：存在 $(c_1,c_2,\dots,c_k)$ 不全为 $0$ ，使得 $c_ 1X_{i1}+c_2X_{i2}+\dots+c_{k}X_{ik}=0$
+
+　　近似共线性：存在 $(c_1,c_2,\dots,c_k)$ 不全为 $0$ ，使得 $c_ 1X_{i1}+c_2X_{i2}+\dots+c_{k}X_{ik}+v_i=0$ ， $v_i$ 为干扰项
+
+## 多重共线性产生的原因和后果
+　　事实上，真实数据是避免不了共线性产生的，即不存在完美的无共线性的数据。（后面的例子可以直观的看出）经济变量的共同趋势，模型设定不谨慎和样本资料的限制等原因均能导致多重共线性的发生。
+
+　　完全的多重共线性使得 $(X^TX)$ 不可逆（奇异矩阵），因而无法得出参数估计量；近似共线性下OLS估计量的方差会变大 $Var(\hat{\beta}) = \sigma^2(X^TX)^{-1}$ ，而 $(X^TX)^{-1} = \frac{(X^TX)^*}{|(X^TX)|}$ 
+
+## 多重共线性的检验
+
+　　1．检验多重共线性是否存在
+
+　　（1）对两个解释变量的模型，采用简单相关系数法。求出 $X_1$ 与 $X_2$ 的简单相关系数 $r$ ，若 $|r|$ 接近1，则说明两变量存在较强的多重共线性。
+（2）对多个解释变量的模型，采用综合统计检验法。若在普通最小二乘法下，模型的 $R^2$ 与 $F$ 值较大，但各参数估计的t检验值较小，说明各解释变量对Y的联合线性作用显著，但各解释变量间存在共线性而使得它们对Y的独立作用不能分辨，故t检验不显著。
+
+　　2．判明存在多重共线性的范围
+
+　　如果存在多重共线性，需进一步确定多重共线性究竟由哪些变量引起。
+（1）判定系数检验法。使模型中每个解释变量分别以其余解释变量为解释变量进行回归，并计算相应的拟合优度，也称为判定系数。如果在某一种形式中判定系数较大，则说明在该形式中作为被解释变量的X可以用其他解释变量的线性组合代替，即X与其他解释变量间存在共线性。可进一步对上述出现较大判定系数的回归方程作F检验。
+（2）逐步回归法。以Y为被解释变量，逐个引入解释变量，构成回归模型，进行模型估计。根据拟合优度的变化决定新引入的变量是否可以用其他变量的线性组合代替，而不是作为独立的解释变量。如果拟合优度变化显著，则说明新引入的变量是一个独立解释变量；如果拟合优度变化很不显著，则说明新引入的变量不是一个独立解释变量，它可以用其他变量的线性组合代替，也就是说它与其他变量之间存在共线性的关系。以上被称为向前回归。向后回归方向相反，是从已有变量中减少变量回归并判断。
+
+## 多重共线性的克服
+
+　　任何时候，实证模型的修正都应当依照经济理论，修正后的模型也应当有合理充分的经济解释。
+
+　　第一类方法：排除引起共线性的变量。找出引起多重共线性的解释变量,将它排除出去。但当排除了某个或某些变量后,保留在模型中的变量的系数的经济意义将发生变化,其估计值也将发生变化。
+
+　　第二类方法:减小参数估计量的方差。多重共线性的主要后果是参数估计量具有较大的方差。若采取适当方法减小参数估计量的方差,虽然没有消除模型中的多重共线性,却能消除多重共线性造成的后果。例如（1）增加样本容量，可使参数估计量的方差减小。（2）岭回归、Lasso回归等。
+
+# 示例：粮食产量的影响因素
+
+## 数据展示
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+output = read.csv("E:\\学习资料\\SASS\\课程\\城房\\1.1.csv",header = TRUE)
+row.names(output) = output[,1]
+output = output[-1]
+log_output = log(output)
+knitr::kable(output,caption = "中国粮食生产与相关投入　　来源：《中国统计年鉴》（2014）")
+```
+
+## 变量相关性分析
+```{r echo=FALSE, message=FALSE, warning=FALSE,out.width="80%", fig.cap="原始数据变量相关性"}
+library(corrplot)
+corrplot(cor(output), addCoef.col = 'white',tl.col = 'black',number.cex = 0.8)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE,out.width="80%", fig.cap="取对数后的相关性"}
+corrplot(cor(log(output)),addCoef.col = 'white',tl.col = 'black',number.cex = 0.8)
+```
+
+## 线性回归OLS
+　　已知有粮食生产函数（计量经济学（第四版）李子奈P116）
+$$\ln Y=\beta_{0}+\beta_{1} \ln X_{1}+\beta_{2} \ln X_{2}+\beta_{3} \ln X_{3}+\beta_{4} \ln X_{4}+\beta_{5} \ln X_{5}+\beta_{6} \ln X_{6}+\mu$$
+　　下面使用原始数据的OLS回归：
+```{r echo=FALSE}
+model_ols = lm(粮食产量Y万吨~.,data = output)
+summary(model_ols)
+```
+　　原始回归的结果是：
+```{r echo=FALSE}
+knitr::kable(summary(model_ols)$coefficients)
+```
+- **方差膨胀因子（VIF）**：
+
+$$VIF_j = \frac{第j个回归系数的方差}{自变量不相关时第j个回归系数的方差}=\frac{1}{1-R_j^2}$$
+其中 $1-R_j^2$ 是自变量 $X_j$ 对模型中其余自变量线性回归模型的R平方。
+
+
+　　上述回归的VIF是
+```{r echo=FALSE,warning=FALSE}
+library(DAAG)
+vif(model_ols)
+```
+
+　　下面使用原始数据取对数后的OLS回归：
+```{r echo=FALSE}
+model_ols_log = lm(粮食产量Y万吨~.,data=log(output))
+summary(model_ols_log)
+```
+
+　　取对数后回归的结果是：
+```{r echo=FALSE}
+knitr::kable(summary(model_ols_log)$coefficients)
+```
+
+　　回归的VIF是
+```{r echo=FALSE}
+vif(model_ols_log)
+```
+
+## 逐步回归
+
+　　解释一个概念：AIC（赤池信息准则）
+
+$$AIC = 2k-2lnL$$,
+　　其中k是参数的数量，L是模型的似然函数（likelyhood）
+
+### 向前（由少到多）
+```{r echo=FALSE}
+(model_step_forward = step(model_ols_log,direction = "forward"))
+summary(model_step_forward)
+```
+### 向后（由多到少）
+```{r echo=FALSE}
+(model_step_backward = step(model_ols_log,direction = "backward"))
+summary(model_step_backward)
+```
+
+### 同时
+```{r echo=FALSE}
+(model_step_both = step(model_ols_log,direction = "both"))
+summary(model_step_both)
+```
+
+ 　　可以看出，逐步回归的结果表明最佳的变量应当选择 $X_1,X_2,X_6$ ，分别是粮食播种面积、有效灌溉面积和农用排灌柴油机。
+
+## 岭回归与Lasso回归
+　　岭回归与Lasso回归的方法从最小二乘法出发，通过加入惩罚项使得估计量有偏但方差下降，不影响一致性。
+$$\hat{\beta}=\underset{\beta}{\operatorname{argmin}}\left\{\sum_{i=1}^{N}\left(y_{i}-\beta_{0}-\sum_{j=1}^{p} x_{i j} \beta_{j}\right)^{2}\right\}$$
+$$\downarrow $$
+$$\\ \hat{\beta}^{\text {ridge}}=\underset{\beta}{\operatorname{argmin}}\left\{\sum_{i=1}^{N}\left(y_{i}-\beta_{0}-\sum_{j=1}^{p} x_{i j} \beta_{j}\right)^{2}+\lambda \sum_{j=1}^{p} \beta_{j}^{2}\right\} \\$$
+$$ or $$
+$$\hat{\beta}^{\text {lasso}}=\underset{\beta}{\operatorname{argmin}}\left\{\sum_{i=1}^{N}\left(y_{i}-\beta_{0}-\sum_{j=1}^{p} x_{i j} \beta_{j}\right)^{2}+\lambda \sum_{j=1}^{p} |\beta_{j}|\right\}$$
+    岭回归与Lasso回归通常应用于大样本情况，效果较好。
+```{r}
+pacman::p_load(glmnet)
+
+# 岭回归模型
+fit.ridge <- glmnet(as.matrix.data.frame(log_output[-1]) ,as.matrix.data.frame(log_output[1]) , alpha=0, lambda=1)
+
+# 绘制系数路径图
+plot(fit.ridge, xvar="lambda", label=TRUE)
+
+# 根据交叉验证选择最优正则化参数lambda
+cv.ridge <- cv.glmnet(as.matrix.data.frame(log_output[-1]), as.matrix.data.frame(log_output[1]), alpha=0)
+plot(cv.ridge)
+
+# 输出最佳模型的系数
+coef(cv.ridge, s = "lambda.min")
+
+```
+
+```{r warning=FALSE}
+# lasso回归模型
+fit.lasso <- glmnet(as.matrix.data.frame(log_output[-1]), as.matrix.data.frame(log_output[1]), alpha=1, lambda=1)
+
+# 绘制系数路径图
+plot(fit.lasso, xvar="lambda", label=TRUE)
+
+# 根据交叉验证选择最优正则化参数lambda
+cv.lasso <- cv.glmnet(as.matrix.data.frame(log_output[-1]), as.matrix.data.frame(log_output[1]), alpha=1)
+plot(cv.lasso)
+
+# 输出最佳模型的系数
+coef(cv.lasso, s = "lambda.min")
+
+```
+　　最后比较一下三者得出的系数：
+　　
+```{r echo=FALSE}
+coeflist = summary(model_ols_log)$coefficients[,1]
+coeflist = cbind(coeflist,as.matrix(coef(cv.ridge, s = "lambda.min")))
+coeflist = cbind(coeflist,as.matrix(coef(cv.lasso, s = "lambda.min")))
+colnames(coeflist)= c('OLS','ridge','lasso')
+knitr::kable(coeflist)
+```
