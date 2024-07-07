@@ -39,7 +39,7 @@ statistical learning,Big data essential etc.</font>
 
 一些实习笔记参见：[sparkle28.github.io](https://sparkle28.github.io/prs/)
 
-+ **国海证券股份有限公司**　　　　2024.05-至今
++ **国海证券股份有限公司**　　　　2024.05-2024.07
 
   创新金融部 FOF研究岗实习生  
   
@@ -53,11 +53,12 @@ statistical learning,Big data essential etc.</font>
   涉及资产配置优化、组合风险管理及调整策略。
   
   - **衍生品交易策略研究与开发：**
-  应用机器学习方法设计股指期货跨品种价差套利高频交易策略。
+  应用机器学习方法研究设计股指期货跨品种价差套利高频交易策略。
+  - **市场观察与研究**：设计实现行业轮动指标，并进行优化；设计期权市场观察指标，并实现全自动输出日报。
 
-+ <font color= #DCDCDC>**Sealand Securities Co., Ltd.** 　　　　2024.05-Present
++ <font color= #DCDCDC>**Sealand Securities Co., Ltd.** 　　　　2024.05-2024.07
 
-  Innovative Finance Department Intern - FOF Research Intern </font>
+  Innovative Finance Department - FOF Research Intern </font>
 
   - <font color= #DCDCDC>**Tracking and analyzing the performance of private equity quantitative strategies**: Continuously track and analyze the performance, strategies, and factor exposures of invested and potentially invested products, and compile weekly automatic reports to efficiently reflect portfolio dynamics. Meanwhile, participate in daily monitoring to ensure that the operating status of invested projects meets expectations.</font>
 
@@ -65,8 +66,9 @@ statistical learning,Big data essential etc.</font>
 
   - <font color= #DCDCDC>**Research on private equity FOF investment system**: Involving asset allocation optimization, portfolio risk management, and adjustment strategies.</font>
 
-  - <font color= #DCDCDC>**Research and development of derivative trading strategies**: Apply machine learning technology to design high-frequency trading strategies for cross-species spreads targeting stock index futures.</font>
-
+  - <font color= #DCDCDC>**Research and development of derivative trading strategies**: Apply machine learning technology to conduct research on High-frequency Trading Strategies for Cross-species Spreads Targeting Stock Index Futures.</font>
+  
+  - <font color= #DCDCDC>**Market Observation and Research**: Design and implement industry rotation indicators, with optimization measures in place; devise options market observation indicators, and implement fully automated daily report generation.</font>
 
 
 + **上海基煜基金销售有限公司**　　　　2023.12-2024.03

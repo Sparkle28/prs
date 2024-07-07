@@ -8,4 +8,1246 @@ categories:
 tags: []
 ---
 
-正在撰写中
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r initialize, include=FALSE,warning=FALSE}
+library(pacman)
+p_load(WindR,ggplot2,zoo,magrittr,scales,lubridate,DT,reshape2)
+w.start()
+w.isconnected()
+```
+
+## 1. 沪深300（大盘股）相关
+
+### 1.1 沪深300风险溢价
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*9
+rolling_window = 360*3
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+PE_300<-w.wsd("000300.SH","pe,pe_ttm",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+PE_300$PE_300_r =  (1/PE_300$PE_TTM)*100
+
+gcny10<-w.edb('M1004916',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(PE_300,gcny10,by = 'DATETIME',all = TRUE)
+
+dt$risk = dt$PE_300_r-dt$CLOSE
+
+dt$mean_roll = rollapply(dt$risk,width = rolling_window,FUN = mean,align = 'right',fill = NA)
+dt$sd_roll = rollapply(dt$risk,width = rolling_window,FUN = sd,align = 'right',fill = NA)
+
+risk_part = dt[!is.na(dt$mean_roll),]
+risk_part$mean_plus_sd = risk_part$mean_roll+risk_part$sd_roll
+risk_part$mean_minus_sd = risk_part$mean_roll-risk_part$sd_roll
+risk_part = risk_part[c(1,4,5,6,7,8,9,10)]
+colnames(risk_part)[3] = 'gcny10'
+```
+
+
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = risk_part, aes(x = DATETIME, y = risk), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300风险溢价：PE倒数-10年国开收益率"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = mean_roll,color = "过去三年均值"),size = 0.5)  +
+  geom_ribbon(aes(ymin = mean_roll - sd_roll, ymax = mean_roll + sd_roll), fill = "blue", alpha = 0.3) +
+  geom_text(data = subset(risk_part, risk == max(risk)), aes(label = paste("高点:", round(risk,2), "在", DATETIME)), vjust = -1, hjust = 1, size = 2.5) +
+  geom_text(data = subset(risk_part, risk == min(risk)), aes(label = paste("低点:", round(risk,2), "在", DATETIME)), vjust = 1, hjust = 1, size = 2.5) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(risk_part)
+```
+
+
+
+#### 1.1.1 溢价与PMI
+
+```{r echo=FALSE,warning=FALSE}
+duration = 360*9
+rolling_window = 360*3
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+PE_300<-w.wsd("000300.SH","pe,pe_ttm",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+PE_300$PE_300_r =  (1/PE_300$PE_TTM)*100
+
+gcny10<-w.edb('M1004916',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(PE_300,gcny10,by = 'DATETIME',all = TRUE)
+
+dt$risk = dt$PE_300_r-dt$CLOSE
+
+PMI = w.edb('M0331594',start_time,stop_time,'Fill=Previous')$Data
+colnames(PMI)[2] = 'PMI'
+
+risk_PMI = merge(dt,PMI,by = 'DATETIME',all = TRUE)
+last_non_na_index <- length(risk_PMI$PMI) - which.max(rev(is.na(risk_PMI$PMI)))
+risk_PMI$PMI[1:last_non_na_index] = na.locf(risk_PMI$PMI[1:last_non_na_index])
+risk_PMI$risk = -1*risk_PMI$risk
+```
+
+```{r echo=FALSE,warning=FALSE}
+ggplot(data = risk_PMI, aes(x = DATETIME, y = PMI, color = "PMI"), width = 30, height = 12) +
+  geom_line(size = 0.5) +
+  geom_line(aes(y = rescale(risk, c(48, 52)), color = "沪深300风险溢价:PE倒数-10年国开收益率"), size = 0.5) +
+  geom_hline(yintercept = c(50, 51), linetype = "dashed", color = "blue") +
+  scale_y_continuous(sec.axis = sec_axis(name = '%', ~rescale(., c(-8, 0))), limits = c(48, 52)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('PMI*-1')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(risk_PMI)
+```
+
+#### 1.1.2 溢价与人民币汇率
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*6
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+PE_300<-w.wsd("000300.SH","pe,pe_ttm",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+PE_300$PE_300_r =  (1/PE_300$PE_TTM)*100
+
+gcny10<-w.edb('M1004916',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(PE_300,gcny10,by = 'DATETIME',all = TRUE)
+
+dt$risk = dt$PE_300_r-dt$CLOSE
+
+exchange = w.wsd("USDCNY.FX","close",start_time,stop_time,'Fill=Previous')$Data
+
+colnames(exchange)[2] = 'exchange'
+
+risk_exchange = merge(dt,exchange,by = 'DATETIME',all = TRUE)
+```
+
+
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = risk_exchange, aes(x = DATETIME, y = risk), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300风险溢价:PE倒数-10年国开收益率"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(exchange,c(0,8)),color = "美元兑人民币"),size = 0.5) + 
+  scale_y_continuous(sec.axis = sec_axis(name = '汇率',~rescale(.,c(6,8))), limits = c(0, 8)) + 
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(risk_exchange)
+```
+
+### 1.2 沪深300
+#### 1.2.1 与PPI 
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*17
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+HS_300<-w.wsd("000300.SH","close",start_time,stop_time)$Data
+
+PPI = w.edb('M0001227',start_time,stop_time,'Fill=Previous')$Data
+colnames(PPI) = c('DATETIME','PPI')
+
+HS_PPI = merge(HS_300,PPI,by = 'DATETIME')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = HS_PPI, aes(x = DATETIME, y = CLOSE), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(PPI,c(1500,6000)),color = "PPI同比"),size = 0.5) + 
+  scale_y_continuous(sec.axis = sec_axis(name = '%',~rescale(.,c(-10,15))), limits = c(1500, 6000)) + 
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(HS_PPI)
+```
+
+#### 1.2.2 与社融增速
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+HS300<-w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+
+
+SRGM = w.edb('M5525763',start_time,stop_time,'Fill=Previous')$Data
+colnames(SRGM) = c('DATETIME','SRGM')
+dt = merge(HS300,SRGM,by = 'DATETIME',all = TRUE)
+
+colnames(dt) = c('DATETIME','HS300','SRGM')
+dt$SRGM[1] = 18.10
+dt$SRGM = na.locf(dt$SRGM)
+
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(SRGM,c(1000,6000)) ,color = "社融规模（同比增速）"),size = 0.5) +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(8,36))), limits = c(1000,6000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+
+#### 1.2.3 与社融增速高频模拟值
+
+数据中社融规模当月同比增速来源于腾景高频模拟，该数据是日度数据，晚于现在10天更新。万得edb指标ID：F1217505
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+HS300<-w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+
+
+SRGM = w.edb('F1217505',start_time,stop_time,'Fill=Previous')$Data
+colnames(SRGM) = c('DATETIME','SRGM')
+dt = merge(HS300,SRGM,by = 'DATETIME',all = TRUE)
+
+colnames(dt) = c('DATETIME','HS300','SRGM')
+# dt$SRGM[1] = 18.10
+# dt$SRGM = na.locf(dt$SRGM)
+
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(SRGM,c(1000,6000)) ,color = "社融规模同比增速（腾景高频模拟）"),size = 0.5) +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(8,36))), limits = c(1000,6000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+
+```{r include=FALSE,warning=FALSE}
+# duration = 360*18
+# 
+# current_day = Sys.Date()
+# start_time = format(current_day-duration,"%Y-%m-%d")
+# stop_time = format(current_day,"%Y-%m-%d")  
+# 
+# HS300<-w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+# 
+# SRGM = w.edb('M5525755',start_time,stop_time,'Fill=Previous')$Data
+# 
+# colnames(SRGM) = c('DATETIME','SRGM')
+# SRGM$diff = c(0,diff(SRGM$SRGM))
+# SRGM$ratio = SRGM$diff / SRGM$SRGM
+# 
+# dt = merge(HS300,SRGM,by = 'DATETIME',all = TRUE)
+# colnames(dt) = c('DATETIME','HS300','SRGM','diff','ratio')
+# dt$SRGM[1] = 22.43
+# dt$diff[1] = 0
+# dt$ratio[1] = 0
+# dt$diff = na.locf(dt$diff)
+# dt$ratio = na.locf(dt$ratio)
+
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+# ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+#   geom_line(aes(color = "沪深300"),size = 0.5) +
+#   geom_line(aes(x = DATETIME, y = rescale(ratio,c(1000,6000)) ,color = "社融规模（环比增速）"),size = 0.5) +
+#   scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(0,0.3))), limits = c(1000,6000)) +
+#   labs(color = "") +
+#   theme(legend.position = 'bottom') +
+#   xlab('') +
+#   ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+# DT::datatable(dt)
+```
+
+#### 1.2.4 与美债
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*2.5
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+hs300 = w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+mggz10<-w.edb('G0000891',start_time,stop_time,'Fill=Previous')$Data
+mggz10$CLOSE = -1*mggz10$CLOSE
+
+dt = merge(hs300,mggz10,by = 'DATETIME',all = TRUE)
+colnames(dt) = c('DATETIME','HS300','MGGZ10')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(MGGZ10,c(3000,5000)) ,color = "美国国债收益率10年"),size = 0.5)  +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-5,0))), limits = c(3000,5000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+#### 1.2.5 与美元指数
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*10
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+HS300 = w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+
+USD_index = w.edb('M0000271',start_time,stop_time,'Fill=Previous')$Data
+
+USBOND_10Y = w.edb('G0000891',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(HS300,USD_index,by = "DATETIME",all = TRUE)
+dt = merge(dt,USBOND_10Y,by = "DATETIME",all = TRUE)
+colnames(dt)=c('DATETIME','HS300','USD_index','USBOND_10Y')
+dt$USD_index = -1*dt$USD_index
+dt$USBOND_10Y = -1*dt$USBOND_10Y
+```
+
+
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(USD_index,c(2000,6000)),color = "美元指数"),size = 0.5) +
+  scale_y_continuous(sec.axis = sec_axis(name = '%,逆序',~rescale(.,c(-115,-75))), limits = c(2000,6000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(USBOND_10Y,c(2000,6000)),color = "十年期美债收益率"),size = 0.5) +
+  scale_y_continuous(sec.axis = sec_axis(name = '%，逆序',~rescale(.,c(-5,0))), limits = c(2000,6000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+#### 1.2.6 与两年-十年国债利差
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+ZGGZ = w.edb('S0059745,S0059749',start_time,stop_time,'Fill=Previous')$Data
+colnames(ZGGZ) = c('DATETIME','ZGGZ2','ZGGZ10')
+ZGGZ$minus = ZGGZ$ZGGZ10-ZGGZ$ZGGZ2
+
+hs300 = w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+
+dt = merge(hs300,ZGGZ,by = 'DATETIME',all = TRUE)
+colnames(dt)[2] = c('HS300')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(minus,c(1000,6000)) ,color = "两年-十年国债利差"),size = 0.5) +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-0.5,2.5))), limits = c(1000,6000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+
+### 1.3 300ETF走势
+
+```{r echo=FALSE,warning=FALSE}
+duration = 30*4
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")
+
+ETF_300 = w.wsd("510330.SH","unit_total",start_time,stop_time,"unit=1")$Data
+ETF_diff = diff(ETF_300$UNIT_TOTAL)
+ETF_diff =as.data.frame(c(ETF_diff,0))
+ETF_300 = cbind(ETF_300,ETF_diff)
+colnames(ETF_300) = c('DATETIME','基金份额','单日增量')
+```
+
+```{r echo=FALSE,warning=FALSE}
+ggplot(data = ETF_300, aes(x = DATETIME)) +
+  geom_line(aes(y = 基金份额, color = '基金份额'),size = 0.5) +
+  geom_bar(aes(y = 单日增量 * 50, color = '50倍300ETF（510300）单日份额增量'), stat = "identity", fill = "steelblue") +
+  labs(color = '') +
+  theme(legend.position = 'bottom')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(ETF_300)
+```
+
+
+## 2. 中美对比
+### 2.1 沪深300与标普500
+```{r include=FALSE,warning=FALSE}
+duration = 360*2
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+hsbp = w.wsd("000300.SH,SPX.GI","close",start_time,stop_time,"Fill=Previous")$Data
+colnames(hsbp) = c('DATETIME','HS300','BP500')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = hsbp, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = BP500,color = "标普500"),size = 0.5)  +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(hsbp)
+```
+
+### 2.2 A股与美债走势
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*2.5
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+hs300 = w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+mggz10<-w.edb('G0000891',start_time,stop_time,'Fill=Previous')$Data
+mggz10$CLOSE = -1*mggz10$CLOSE
+
+dt = merge(hs300,mggz10,by = 'DATETIME',all = TRUE)
+colnames(dt) = c('DATETIME','HS300','MGGZ10')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(MGGZ10,c(3000,5000)) ,color = "美国国债收益率10年"),size = 0.5)  +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-5,0))), limits = c(3000,5000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+### 2.3 沪深300与中美利差
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*2.5
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+hs300 = w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+
+zggz1<-w.edb('M0325686',start_time,stop_time,'Fill=Previous')$Data
+zggz10<-w.edb('M0325687',start_time,stop_time,'Fill=Previous')$Data
+
+zggz = merge(zggz1,zggz10,by = 'DATETIME',all = TRUE)
+
+mggz1<-w.edb('G0000884',start_time,stop_time,'Fill=Previous')$Data
+mggz10<-w.edb('G0000891',start_time,stop_time,'Fill=Previous')$Data
+
+mggz = merge(mggz1,mggz10,by = 'DATETIME',all = TRUE)
+
+gz = merge(zggz,mggz,by = 'DATETIME',all = TRUE)
+colnames(gz) = c('DATETIME','CN_1Y','CN_10Y','US_1Y','US_10Y')
+gz$margin1 = gz$CN_1Y-gz$US_1Y
+gz$margin10 = gz$CN_10Y-gz$US_10Y
+
+dt = merge(hs300,gz,by = 'DATETIME',all = TRUE)
+colnames(dt)[2] = 'HS300'
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(margin1,c(3000,5000)) ,color = "中美利差1年"),size = 0.5)  +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-4,3))), limits = c(3000,5000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = HS300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(margin10,c(3000,5000)) ,color = "中美利差10年"),size = 0.5)  +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-4,3))), limits = c(3000,5000)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+### 2.4 美债tips与10年美债
+
+```{r include=FALSE,warning=FALSE}
+duration = 30*20
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+UST10Y = w.edb('G0000891',start_time,stop_time,'Fill=Previous')$Data
+
+UST10YTIPS = w.wsd("G0005428","close",start_time,stop_time,"PriceAdj=F")$Data
+dt = merge(UST10Y,UST10YTIPS,by = 'DATETIME',all = TRUE)
+colnames(dt)[2:3] = c('UST10Y','UST10YTIPS')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = UST10Y), width = 30, height = 12) +
+  geom_line(aes(color = "10年期美债收益率"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = UST10YTIPS,color = "10年期美债tips隐含实际利率"),size = 0.5) + 
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+cat(paste('两者相关系数：',round(cor(dt$UST10Y,dt$UST10YTIPS),2)))
+```
+
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+## 3. 行业与板块
+
+### 3.2 50/创业板与美债实际利率
+
+```{r include=FALSE,warning=FALSE}
+duration = 30*20
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+index = w.wsd("000016.SH,399006.SZ","close",start_time,stop_time,"Fill=Previous")$Data
+colnames(index)[c(2,3)] = c('SZ50','CYBZ')
+index$ratio = index$SZ50/index$CYBZ
+
+UST10YTIPS = w.wsd("G0005428","close",start_time,stop_time,"PriceAdj=F")$Data
+dt = merge(index,UST10YTIPS,by = 'DATETIME',all = TRUE)
+colnames(dt)[5] = 'UST10YTIPS'
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = ratio), width = 30, height = 12) +
+  geom_line(aes(color = "50/创业板"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(UST10YTIPS,c(0.96,1.26)),color = "10年期美债tips隐含实际利率"),size = 0.5) + 
+  scale_y_continuous(sec.axis = sec_axis(name = '%',~rescale(.,c(-1.5,2.5))), limits = c(0.96,1.26)) + 
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+### 3.3 板块PE估值
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*5
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+HS_300<-w.wsd("000300.SH","pe",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+CYBZ<-w.wsd("399006.SZ","pe",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+ZZ_500<-w.wsd("000905.SH","pe",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+ZZ_1000<-w.wsd("000852.SH","pe",start_time,stop_time,"ruleType=10;Fill=Previous")$Data
+
+PE = cbind(cbind(cbind(HS_300,CYBZ$PE),ZZ_500$PE),ZZ_1000$PE)
+colnames(PE) = c("DATETIME","沪深300","创业板指","中证500","中证1000")
+
+PE_long = melt(PE,id.vars = 'DATETIME',variable.name = 'name', value.name = 'PE_value')
+```
+
+
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = PE_long, aes(x = name, y = PE_value), width = 30, height = 12) +
+  geom_boxplot() + 
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(PE_long)
+```
+
+
+### 3.5 重点板块
+
+#### 3.5.1 芯片
+
+```{r echo=FALSE,warning=FALSE}
+duration = 360*2
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")
+
+chips = w.wsd("884160.WI","close",start_time,stop_time,"PriceAdj=F")$Data
+
+UST10YTIPS = w.wsd("G0005428","close",start_time,stop_time,"PriceAdj=F")$Data
+UST10YTIPS$CLOSE = -1*UST10YTIPS$CLOSE
+
+df = merge(chips,UST10YTIPS,by = 'DATETIME',all = TRUE)
+colnames(df) = c('DATETIME','芯片指数','十年期美债tips隐含实际利率')
+```
+
+```{r echo=FALSE,warning=FALSE}
+ggplot(data = df,aes(x = DATETIME)) +  
+  geom_line(aes(y = 芯片指数 ,color = '芯片指数'),size = 0.5) +
+  geom_line(aes(y = rescale(十年期美债tips隐含实际利率,c(6000,12500))  ,color = '十年期美债tips隐含实际利率*-1'),size = 0.5) + 
+  scale_y_continuous(sec.axis = sec_axis(name = '十年期美债tips隐含实际利率*-1',~rescale(.,c(-2.5,0))), limits = c(6000,12500))  +
+  labs(color = '') + 
+  theme(legend.position = 'bottom')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(df)
+```
+## 4 北向资金
+
+```{r echo=FALSE,warning=FALSE}
+# current_day = Sys.Date()
+# 
+# hgt1 = w.wset('shhktransactionstatistics','startdate=2019-01-01;enddate=2019-12-31;cycle=day;currency=cny;field=date,sh_net_purchases')$Data[-1]
+# hgt1$date = format(w.asDateTime(hgt1$date,asdate = TRUE),'%m-%d') 
+# sgt1 = w.wset('szhktransactionstatistics','startdate=2019-01-01;enddate=2019-12-31;cycle=day;currency=cny;field=date,sz_net_purchases')$Data[-1]
+# sgt1$date = format(w.asDateTime(sgt1$date,asdate = TRUE),'%m-%d')
+# 
+# lgt1 = merge(hgt1,sgt1,by = 'date',all = TRUE)
+# lgt1[is.na(lgt1)] <- 0
+# lgt1$lgt = lgt1$sh_net_purchases+lgt1$sz_net_purchases
+# lgt1$lgts = cumsum(lgt1$lgt)
+# 
+# hgt2 = w.wset('shhktransactionstatistics','startdate=2020-01-01;enddate=2020-12-31;cycle=day;currency=cny;field=date,sh_net_purchases')$Data[-1]
+# hgt2$date = format(w.asDateTime(hgt2$date,asdate = TRUE),'%m-%d')
+# sgt2 = w.wset('szhktransactionstatistics','startdate=2020-01-01;enddate=2020-12-31;cycle=day;currency=cny;field=date,sz_net_purchases')$Data[-1]
+# sgt2$date = format(w.asDateTime(sgt2$date,asdate = TRUE),'%m-%d')
+# 
+# lgt2 = merge(hgt2,sgt2,by = 'date',all = TRUE)
+# lgt2[is.na(lgt2)] <- 0
+# lgt2$lgt = lgt2$sh_net_purchases+lgt2$sz_net_purchases
+# lgt2$lgts = cumsum(lgt2$lgt)
+# 
+# hgt3 = w.wset('shhktransactionstatistics','startdate=2021-01-01;enddate=2021-12-31;cycle=day;currency=cny;field=date,sh_net_purchases')$Data[-1]
+# hgt3$date = format(w.asDateTime(hgt3$date,asdate = TRUE),'%m-%d')
+# sgt3 = w.wset('szhktransactionstatistics','startdate=2021-01-01;enddate=2021-12-31;cycle=day;currency=cny;field=date,sz_net_purchases')$Data[-1]
+# sgt3$date = format(w.asDateTime(sgt3$date,asdate = TRUE),'%m-%d')
+# 
+# lgt3 = merge(hgt3,sgt3,by = 'date',all = TRUE)
+# lgt3[is.na(lgt3)] <- 0
+# lgt3$lgt = lgt3$sh_net_purchases+lgt3$sz_net_purchases
+# lgt3$lgts = cumsum(lgt3$lgt)
+# 
+# hgt4 = w.wset('shhktransactionstatistics','startdate=2022-01-01;enddate=2022-12-31;cycle=day;currency=cny;field=date,sh_net_purchases')$Data[-1]
+# hgt4$date = format(w.asDateTime(hgt4$date,asdate = TRUE),'%m-%d')
+# sgt4 = w.wset('szhktransactionstatistics','startdate=2022-01-01;enddate=2022-12-31;cycle=day;currency=cny;field=date,sz_net_purchases')$Data[-1]
+# sgt4$date = format(w.asDateTime(sgt4$date,asdate = TRUE),'%m-%d')
+# 
+# lgt4 = merge(hgt4,sgt4,by = 'date',all = TRUE)
+# lgt4[is.na(lgt4)] <- 0
+# lgt4$lgt = lgt4$sh_net_purchases+lgt4$sz_net_purchases
+# lgt4$lgts = cumsum(lgt4$lgt)
+# 
+# hgt5 = w.wset('shhktransactionstatistics',paste('startdate=2023-01-01;enddate=',format(current_day,"%Y-%m-%d"),';cycle=day;currency=cny;field=date,sh_net_purchases'))$Data[-1]
+# hgt5$date = format(w.asDateTime(hgt5$date,asdate = TRUE),'%m-%d')
+# sgt5 = w.wset('szhktransactionstatistics',paste('startdate=2023-01-01;enddate=',format(current_day,"%Y-%m-%d"),';cycle=day;currency=cny;field=date,sz_net_purchases'))$Data[-1]
+# sgt5$date = format(w.asDateTime(sgt5$date,asdate = TRUE),'%m-%d')
+# 
+# lgt5 = merge(hgt5,sgt5,by = 'date',all = TRUE)
+# lgt5[is.na(lgt5)] <- 0
+# lgt5$lgt = lgt5$sh_net_purchases+lgt5$sz_net_purchases
+# lgt5$lgts = cumsum(lgt5$lgt)
+# 
+# lgtw = merge(lgt1[c(1,5)],lgt2[c(1,5)],by = 'date',all = TRUE)
+# lgtw = merge(lgtw,lgt3[c(1,5)],by = 'date',all = TRUE)
+# lgtw = merge(lgtw,lgt4[c(1,5)],by = 'date',all = TRUE)
+# lgtw = merge(lgtw,lgt5[c(1,5)],by = 'date',all = TRUE)
+# colnames(lgtw) = c('DATETIME','y2019','y2020','y2021','y2022','y2023')
+# lgtw$DATETIME = as.Date(lgtw$DATETIME,format = '%m-%d')
+# lgtw$CODE = 1:length(lgtw$DATETIME)
+# lgtw$y2019 = na.approx(lgtw$y2019)
+# lgtw$y2020 = na.approx(lgtw$y2020)
+# lgtw$y2021[1:2] = c(0,0)
+# lgtw$y2021 = na.approx(lgtw$y2021)
+# lgtw$y2022[1:2] = c(0,0)
+# lgtw$y2022[length(lgtw$y2022)] = lgtw$y2022[length(lgtw$y2022)-1]
+# lgtw$y2022 = na.approx(lgtw$y2022)
+```
+
+```{r echo=FALSE,warning=FALSE}
+# ggplot(data = lgtw, aes(x = DATETIME, y = y2019, color = "y2019"), width = 50, height = 20) +
+#   geom_line(size = 0.5, linetype = "solid") +
+#   geom_line(aes(x = DATETIME, y = y2020, color = "y2020"), size = 0.5, linetype = "solid") +
+#   geom_line(aes(x = DATETIME, y = y2021, color = "y2021"), size = 0.5, linetype = "solid") +
+#   geom_line(aes(x = DATETIME, y = y2022, color = "y2022"), size = 0.5, linetype = "solid") +
+#   geom_line(aes(x = DATETIME, y = y2023, color = "y2023"), size = 1, linetype = "solid") +
+#   geom_text(data = subset(lgtw, y2019 == max(y2019)), aes(label = round(y2019, 2)), vjust = -1, hjust = 1, size = 0.5) +
+#   geom_text(data = subset(lgtw, y2020 == max(y2020)), aes(label = round(y2020, 2)), vjust = -1, hjust = 1, size = 0.5) +
+#   geom_text(data = subset(lgtw, y2021 == max(y2021)), aes(label = round(y2021, 2)), vjust = -1, hjust = 1, size = 0.5) +
+#   geom_text(data = subset(lgtw, y2022 == max(y2022)), aes(label = round(y2022, 2)), vjust = -1, hjust = 1, size = 0.5) +
+#   geom_text(data = subset(lgtw, y2023 == max(y2023)), aes(label = round(y2023, 2)), vjust = -1, hjust = 1, size = 0.5) +
+#   labs(color = "年份") +
+#   xlab('') +
+#   ylab('累积量（亿元）') +
+#   theme(legend.position = 'bottom')
+```
+
+```{r echo=FALSE,warning=FALSE}
+# DT::datatable(lgtw)
+```
+
+
+
+## 5 市场风格
+```{r echo=FALSE,warning=FALSE}
+current_day = Sys.Date()
+
+stop_time = format(current_day,"%Y-%m-%d")
+
+TMT = w.wsd("882008.WI","close",'2023-01-01',stop_time)$Data
+XF = w.wsd("882005.WI","close",'2023-01-01',stop_time)$Data
+
+TMT_dj = vector()
+TMT_dj[1] = 0
+for (i in 2:length(TMT$CLOSE)) {
+  TMT_dj[i] = (TMT$CLOSE[i]-TMT$CLOSE[1])/TMT$CLOSE[1]
+}
+TMT_dj = as.data.frame(TMT_dj)
+
+XF_dj = vector()
+XF_dj[1] = 0
+for (i in 2:length(XF$CLOSE)) {
+  XF_dj[i] = (XF$CLOSE[i]-XF$CLOSE[1])/TMT$CLOSE[1]
+}
+XF_dj = as.data.frame(XF_dj)
+
+style = cbind(as.Date(TMT$DATETIME),TMT_dj)
+style = cbind(style,XF_dj)
+
+colnames(style) = c('DATETIME','TMT_dj','XF_dj')
+```
+
+```{r echo=FALSE,warning=FALSE}
+ggplot(data = style,aes(x = DATETIME,y = TMT_dj,color = 'A股TMT定基指数')) +
+  geom_line(size = 0.5) + 
+  geom_line(aes(x = DATETIME,y = XF_dj,color = '日常消费指数定基'),size = 0.5) + 
+  labs(color = '') + 
+  theme(legend.position = 'bottom')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(style)
+```
+
+## 6 公司财务分析
+
+### 6.1 大盘股(300)/中盘股(500)/小盘股(1000) ROE
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*14
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+ROE = w.wsd("000300.SH,000905.SH,000852.SH","roe_avg",start_time,stop_time,"Period=Y;Fill=Previous")$Data
+colnames(ROE) = c('DATETIME','沪深300','中证500','中证1000')
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = ROE, aes(x = DATETIME, y = 沪深300), width = 30, height = 12) +
+  geom_line(aes(color = "沪深300"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = 中证500,color = "中证500"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = 中证1000,color = "中证1000"),size = 0.5) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(ROE)
+```
+
+### 6.2 大中小盘三年PE估值分位数
+
+```{r include=FALSE,warning=FALSE}
+duration1 = 360*3
+duration2 = 360*5
+
+current_day = Sys.Date()
+start_time1 = format(current_day-duration1,"%Y-%m-%d")
+start_time2 = format(current_day-duration2,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+HS_300_3<-w.wsd("000300.SH","pe",start_time1,stop_time,"ruleType=10;Fill=Previous")$Data
+HS_300_5<-w.wsd("000300.SH","pe",start_time2,stop_time,"ruleType=10;Fill=Previous")$Data
+
+CYBZ_3<-w.wsd("399006.SZ","pe",start_time1,stop_time,"ruleType=10;Fill=Previous")$Data
+CYBZ_5<-w.wsd("399006.SZ","pe",start_time2,stop_time,"ruleType=10;Fill=Previous")$Data
+
+ZZ500_3<-w.wsd("000905.SH","pe",start_time1,stop_time,"ruleType=10;Fill=Previous")$Data
+ZZ500_5<-w.wsd("000905.SH","pe",start_time2,stop_time,"ruleType=10;Fill=Previous")$Data
+
+ZZ1000_3<-w.wsd("000852.SH","pe",start_time1,stop_time,"ruleType=10;Fill=Previous")$Data
+ZZ1000_5<-w.wsd("000852.SH","pe",start_time2,stop_time,"ruleType=10;Fill=Previous")$Data
+
+
+get_quantile = function(data){
+  latest_data <- tail(data, 1)
+  qt = ecdf(data)
+  return(qt(latest_data))
+}
+qHS_300_3 = get_quantile(HS_300_3$PE)
+qHS_300_5 = get_quantile(HS_300_5$PE)
+
+qCYBZ_3 = get_quantile(CYBZ_3$PE)
+qCYBZ_5 = get_quantile(CYBZ_5$PE)
+
+qZZ500_3 = get_quantile(ZZ500_3$PE)
+qZZ500_5 = get_quantile(ZZ500_5$PE)
+
+qZZ1000_3 = get_quantile(ZZ1000_3$PE)
+qZZ1000_5 = get_quantile(ZZ1000_5$PE)
+
+quantile_data <- data.frame(
+  Index = c("沪深300", "沪深300", "创业板指", "创业板指", "中证500", "中证500", "中证1000", "中证1000"),
+  Period = c("过去3年", "过去5年", "过去3年", "过去5年", "过去3年", "过去5年", "过去3年", "过去5年"),
+  Quantile = c(qHS_300_3, qHS_300_5, qCYBZ_3, qCYBZ_5, qZZ500_3, qZZ500_5, qZZ1000_3, qZZ1000_5)
+)
+
+library(reshape2)
+melted_data <- melt(quantile_data, id.vars = c("Index", "Period"), variable.name = "Quantile")
+
+melted_data$value = melted_data$value*100
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(melted_data, aes(x = Index, y = value, fill = Period)) +
+  geom_bar(stat = "identity", position = "dodge",alpha = 0.5) +
+  geom_text(aes(label = round(value,1)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  scale_fill_manual(values = c("过去3年" = "blue", "过去5年" = "red")) 
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(melted_data)
+```
+
+
+
+## 7 A股规模与交易量
+
+### 7.1 A股自由流通市值/M2比值
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = current_day-duration
+stop_time = current_day 
+chunk_size <- 800
+total_iterations <- ceiling(duration / chunk_size)
+
+free_exchange_scale =   w.wses("a001010100000000","sec_mkt_cap_float_freeshares_sum_chn", format(start_time,"%Y-%m-%d"),format(current_day-duration+ chunk_size - 1,"%Y-%m-%d"),"unit=1;Fill=Previous")$Data
+
+for (i in 2:total_iterations) {
+
+  current_start_date <- format(start_time + (i - 1) * chunk_size,"%Y-%m-%d") 
+  current_end_date <- format(start_time + i * chunk_size - 1,"%Y-%m-%d") 
+  
+  if((current_day - (start_time + (i - 1) * chunk_size) < 799 )){
+    current_end_date = format(current_day,"%Y-%m-%d")
+  } else{
+    current_end_date <- format(start_time + i * chunk_size - 1,"%Y-%m-%d")
+  }
+  new = w.wses("a001010100000000","sec_mkt_cap_float_freeshares_sum_chn",current_start_date,current_end_date,"unit=1;Fill=Previous")$Data
+  free_exchange_scale =  rbind(free_exchange_scale,new) 
+}
+
+M2 = w.edb('M0001384',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(free_exchange_scale,M2,by = 'DATETIME',all.x = TRUE)
+dt$CLOSE[1]=2317788.4
+dt$CLOSE = na.locf(dt$CLOSE, na.rm = FALSE, fromLast = FALSE)
+
+dt$res = dt$SEC_MKT_CAP_FLOAT_FREESHARES_SUM_CHN/dt$CLOSE/1e+06
+
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = res), width = 30, height = 12) +
+  geom_line(aes(color = "A股自由流通市值/M2"),size = 0.5) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+### 7.2 A股自由流通市值/M2比值 叠加全A
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = current_day-duration
+stop_time = current_day 
+chunk_size <- 800
+total_iterations <- ceiling(duration / chunk_size)
+
+free_exchange_scale =   w.wses("a001010100000000","sec_mkt_cap_float_freeshares_sum_chn", format(start_time,"%Y-%m-%d"),format(current_day-duration+ chunk_size - 1,"%Y-%m-%d"),"unit=1;Fill=Previous")$Data
+
+for (i in 2:total_iterations) {
+
+  current_start_date <- format(start_time + (i - 1) * chunk_size,"%Y-%m-%d") 
+  current_end_date <- format(start_time + i * chunk_size - 1,"%Y-%m-%d") 
+  
+  if((current_day - (start_time + (i - 1) * chunk_size) < 799 )){
+    current_end_date = format(current_day,"%Y-%m-%d")
+  } else{
+    current_end_date <- format(start_time + i * chunk_size - 1,"%Y-%m-%d")
+  }
+  new = w.wses("a001010100000000","sec_mkt_cap_float_freeshares_sum_chn",current_start_date,current_end_date,"unit=1;Fill=Previous")$Data
+  free_exchange_scale =  rbind(free_exchange_scale,new) 
+}
+
+M2 = w.edb('M0001384',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(free_exchange_scale,M2,by = 'DATETIME',all.x = TRUE)
+dt$CLOSE[1]=2317788.4
+dt$CLOSE = na.locf(dt$CLOSE, na.rm = FALSE, fromLast = FALSE)
+
+dt$res = dt$SEC_MKT_CAP_FLOAT_FREESHARES_SUM_CHN/dt$CLOSE/1e+06
+
+whole_A = w.wsd("881001.WI","close",start_time,stop_time,"Fill=Previous")$Data
+
+dt = merge(dt,whole_A,by = 'DATETIME',all = TRUE)
+colnames(dt)[5] = 'whole_A'
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = res), width = 30, height = 12) +
+  geom_line(aes(color = "A股自由流通市值/M2"),size = 0.5) +
+  geom_line(aes(x = DATETIME,y =   rescale(whole_A,c(0,25)) ,color = '万得全A')) +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(700,7000))), limits = c(0, 25)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+### 7.3 A股自由流通市值/名义GDP
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = current_day-duration
+stop_time = current_day 
+chunk_size <- 800
+total_iterations <- ceiling(duration / chunk_size)
+
+free_exchange_scale =   w.wses("a001010100000000","sec_mkt_cap_float_freeshares_sum_chn", format(start_time,"%Y-%m-%d"),format(current_day-duration+ chunk_size - 1,"%Y-%m-%d"),"unit=1;Fill=Previous")$Data
+
+for (i in 2:total_iterations) {
+
+  current_start_date <- format(start_time + (i - 1) * chunk_size,"%Y-%m-%d") 
+  current_end_date <- format(start_time + i * chunk_size - 1,"%Y-%m-%d") 
+  
+  if((current_day - (start_time + (i - 1) * chunk_size) < 799 )){
+    current_end_date = format(current_day,"%Y-%m-%d")
+  } else{
+    current_end_date <- format(start_time + i * chunk_size - 1,"%Y-%m-%d")
+  }
+  new = w.wses("a001010100000000","sec_mkt_cap_float_freeshares_sum_chn",current_start_date,current_end_date,"unit=1;Fill=Previous")$Data
+  free_exchange_scale =  rbind(free_exchange_scale,new) 
+}
+
+GDP = w.edb('M0000001',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(free_exchange_scale,GDP,by = 'DATETIME',all.x = TRUE)
+dt$CLOSE = na.locf(dt$CLOSE, na.rm = FALSE, fromLast = FALSE)
+
+dt$res = dt$SEC_MKT_CAP_FLOAT_FREESHARES_SUM_CHN/dt$CLOSE/1e+08
+
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = res), width = 30, height = 12) +
+  geom_line(aes(color = "A股自由流通市值/名义GDP累计值"),size = 0.5) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+
+
+### 7.3 近期场内的融资资金活跃度
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*5
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+RZ = w.wset('markettradingstatistics(value)',paste('exchange=all;startdate=',format(current_day-800,"%Y-%m-%d"),';enddate=',stop_time,';frequency=day;sort=asc;field=period_bought_amount,margin_balance',sep = ''))$Data
+
+CJE = w.wses("a001010100000000","sec_amount_sum",format(current_day-800,"%Y-%m-%d"),stop_time,"currencyType=Cur=CNY;Fill=Previous")$Data
+
+LTSZ = w.wses("a001010100000000","sec_mkt_cap_float_ashares_sum_chn",format(current_day-800,"%Y-%m-%d"),stop_time,"unit=1;Fill=Previous")$Data
+
+RZ = cbind(CJE$DATETIME[1:length(RZ$CODE)],RZ[c(2,3)])
+colnames(RZ)[1] = 'DATETIME'
+
+dt = merge(RZ,CJE,by = 'DATETIME',all = TRUE)
+dt = merge(dt,LTSZ,by = 'DATETIME',all = TRUE)
+
+colnames(dt) = c('DATETIME','period_bought_amount','margin_balance','CJE','LTSZ')
+dt$res1 = dt$period_bought_amount/dt$CJE*100
+dt$res2 = dt$margin_balance/dt$LTSZ*100
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = res1), width = 30, height = 12) +
+  geom_line(aes(color = "融资买入额占两市成交额比MA5"),size = 0.5) + 
+  geom_line(aes(x = DATETIME, y = rescale(res2,c(0,13)) ,color = '融资余额占流通市值比MA10'),size = 0.5) +
+  labs(color = "") + 
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(0,3))), limits = c(0, 13)) +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+### 7.4 成交与货币量
+```{r include=FALSE,warning=FALSE}
+duration = 360*18
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+HS_300<-w.wsd("000300.SH","close",start_time,stop_time,"Fill=Previous")$Data
+M1_2 = w.edb('M0001383,M0001385',start_time,stop_time,'Fill=Previous')$Data
+colnames(M1_2) = c('DATETIME','M1','M2')
+
+dt = merge(HS_300,M1_2,by = 'DATETIME',all = TRUE)
+dt$minus = dt$M1-dt$M2
+dt$minus[1] = 0
+dt$minus = na.locf(dt$minus, na.rm = FALSE, fromLast = FALSE)
+```
+
+
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = minus), width = 30, height = 12) +
+  geom_line(aes(color = "M1-M2"),size = 0.5) + 
+  geom_line(aes(x = DATETIME,y =  rescale(CLOSE,c(-15,20)) ,color = '成交额/流通市值（5日均值）'),size = 0.5) + 
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(1000,6000))), limits = c(-15, 20)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('%')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+### 8 汇率与利差
+
+#### 8.1 汇率与LiborShibor差
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*2.5
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+exchange = w.wsd("USDCNY.FX","close",start_time,stop_time,'Fill=Previous')$Data
+
+SHIBOR_3M= w.edb('M0017142',start_time,stop_time,'Fill=Previous')$Data
+LIBOR_3M= w.edb('G0000898',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(merge(exchange,SHIBOR_3M,by = 'DATETIME',all = TRUE),LIBOR_3M,by = 'DATETIME',all = TRUE)  
+
+colnames(dt) = c('DATETIME','exchange','SHIBOR_3M','LIBOR_3M')
+dt[1,2:4] = c(6.4,2.5,0.16)
+dt = na.locf(dt)
+dt$minus = dt$LIBOR_3M-dt$SHIBOR_3M
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = exchange), width = 30, height = 12) +
+  geom_line(aes(color = "美元人民币汇率"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(minus,c(6,8)) ,color = "三个月Libor-Shibor"),size = 0.5)  +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-3,4))), limits = c(6,8)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
+
+#### 8.2 汇率与10年中美国债利差
+
+```{r include=FALSE,warning=FALSE}
+duration = 360*2.5
+
+current_day = Sys.Date()
+start_time = format(current_day-duration,"%Y-%m-%d")
+stop_time = format(current_day,"%Y-%m-%d")  
+
+exchange = w.wsd("USDCNY.FX","close",start_time,stop_time,'Fill=Previous')$Data
+
+zggz10<-w.edb('M0325687',start_time,stop_time,'Fill=Previous')$Data
+
+mggz10<-w.edb('G0000891',start_time,stop_time,'Fill=Previous')$Data
+
+dt = merge(merge(exchange,zggz10,by = 'DATETIME',all = TRUE),mggz10,by = 'DATETIME',all = TRUE)  
+
+colnames(dt) = c('DATETIME','exchange','zggz10','mggz10')
+dt[1,2:4] = c(6.4,3.1,1.6)
+dt = na.locf(dt)
+dt$minus = dt$zggz10-dt$mggz10
+```
+
+```{r include=TRUE,echo=FALSE,warning=FALSE}
+ggplot(data = dt, aes(x = DATETIME, y = exchange), width = 30, height = 12) +
+  geom_line(aes(color = "美元人民币汇率"),size = 0.5) +
+  geom_line(aes(x = DATETIME, y = rescale(minus,c(6,8)) ,color = "十年期中美国债利差"),size = 0.5)  +
+  scale_y_continuous(sec.axis = sec_axis(name = '',~rescale(.,c(-3,2))), limits = c(6,8)) +
+  labs(color = "") +
+  theme(legend.position = 'bottom') +
+  xlab('') +
+  ylab('')
+```
+
+```{r echo=FALSE,warning=FALSE}
+DT::datatable(dt)
+```
