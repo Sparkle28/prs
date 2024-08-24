@@ -39,6 +39,15 @@ statistical learning,Big data essential etc.</font>
 
 一些实习笔记参见：[sparkle28.github.io](https://sparkle28.github.io/prs/)
 
++ **上银理财有限责任公司**　　　　2024.07-now
+
+  固定收益部 投研助理（暑期实习）  
+
++ <font color= #DCDCDC>**BOSC Wealth Management Co., Ltd.** 　　　　2024.07-now
+
+  Fixed Income Department - Research & Investment Summer Intern </font>
+
+
 + **国海证券股份有限公司**　　　　2024.05-2024.07
 
   创新金融部 FOF研究岗实习生  
@@ -158,5 +167,5 @@ measurement, policies and carbon disclosure standards as well as disclosure stat
 + **黄浦区发展金融科技前沿技术及突破重点研究** 　　　　2023.03-2023.06
 + <font color= #DCDCDC>Research on cutting-edge technologies and breakthroughs in the development of financial technology,Huangpu Goverment 　　　　 2023.03-2023.06</font>
 
-+ **数据要素赋能上海科创0-1科学研究** 　　　　2024.02-now
-+ <font color= #DCDCDC>Data Elements Enable Scientific Research of Shanghai Science and Innovation from 0 to 1,Shanghai Goverment　　　　 2024.02-now</font> 
++ **数据要素赋能上海科创0-1科学研究** 　　　　2024.02-2024.07
++ <font color= #DCDCDC>Data Elements Enable Scientific Research of Shanghai Science and Innovation from 0 to 1,Shanghai Goverment　　　　 2024.02-2024.07</font> 
