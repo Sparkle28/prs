@@ -5,7 +5,6 @@ date: '2020-06-01'
 categories:
   - personal Information
 ---
-[PDF Ver](https://gitee.com/sparkle28/files/raw/master/CV/%E4%BB%A4%E7%BA%AA%E6%B3%BD20240824.pdf)
 
 # 联系方式 <font color= #DCDCDC>CONTACT</font> 
 
@@ -170,3 +169,6 @@ measurement, policies and carbon disclosure standards as well as disclosure stat
 
 + **数据要素赋能上海科创0-1科学研究** 　　　　2024.02-2024.07
 + <font color= #DCDCDC>Data Elements Enable Scientific Research of Shanghai Science and Innovation from 0 to 1,Shanghai Goverment　　　　 2024.02-2024.07</font> 
+
+
+[PDF Ver](https://gitee.com/sparkle28/files/raw/master/CV/%E4%BB%A4%E7%BA%AA%E6%B3%BD20240824.pdf)
