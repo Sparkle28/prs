@@ -5,6 +5,7 @@ date: '2020-06-01'
 categories:
   - personal Information
 ---
+[PDF Ver](https://gitee.com/sparkle28/files/raw/master/CV/%E4%BB%A4%E7%BA%AA%E6%B3%BD20240824.pdf)
 
 # 联系方式 <font color= #DCDCDC>CONTACT</font> 
 
