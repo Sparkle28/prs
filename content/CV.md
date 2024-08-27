@@ -171,4 +171,7 @@ measurement, policies and carbon disclosure standards as well as disclosure stat
 + <font color= #DCDCDC>Data Elements Enable Scientific Research of Shanghai Science and Innovation from 0 to 1,Shanghai Goverment　　　　 2024.02-2024.07</font> 
 
 
-[PDF Ver](https://gitee.com/sparkle28/files/raw/master/CV/%E4%BB%A4%E7%BA%AA%E6%B3%BD20240824.pdf)
+
+<p style="color: #F0F0F0;">  
+    <a href="https://gitee.com/sparkle28/files/raw/master/CV/%E4%BB%A4%E7%BA%AA%E6%B3%BD20240824.pdf">PDF Ver</a>  
+</p>
