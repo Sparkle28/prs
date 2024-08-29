@@ -159,7 +159,8 @@ measurement, policies and carbon disclosure standards as well as disclosure stat
 + **Kaggle - Optiver Trading at the Close** 　　　　2023.09-2023.12
 
   - [LINK HERE](https://www.kaggle.com/competitions/optiver-trading-at-the-close)
-
+  
+  - [View my Certificate](https://www.kaggle.com/certification/competitions/sparkle28/optiver-trading-at-the-close)
 
 
 # 项目经历 <font color= #DCDCDC>PROJECT EXPERIENCE</font>
@@ -172,6 +173,6 @@ measurement, policies and carbon disclosure standards as well as disclosure stat
 
 
 
-<p style="color: #F0F0F0;">  
+<p style="color: #FAFAFA;">  
     <a href="https://gitee.com/sparkle28/files/raw/master/CV/%E4%BB%A4%E7%BA%AA%E6%B3%BD20240824.pdf">PDF Ver</a>  
 </p>
