@@ -42,11 +42,26 @@ statistical learning,Big data essential etc.</font>
 + **上银理财有限责任公司**　　　　2024.07-now
 
   固定收益部 投研助理（暑期实习）  
+  
+  - 日常投研支持工作：协助编制产品银行账户清单；协助编制银行资金动账指令单；开发自动投资指令检测分析程序；开发信托合规指标自动穿透分析程序。上述工作均使用自动化程序大大提高了日常投研效率，提高准确性，节省时间与人力劳动。
+
+  - 研究工作：
+
+    - 2024H1现金管理类产品规模变动研究：详细分析上半年理财市场现状，其中重点分析现金管理类产品市场现状；从宏观基本面、政策面、资金面、市场供需分析现金管理类产品上半年规模变动原因；对未来现管产品市场进行展望，对后续发展提出建议。
+
+    - 基于机器学习方法的利率债机器久期轮动策略研究：利用利率期限结构、利差与宏观数据等预测未来周频最佳久期。
 
 + <font color= #DCDCDC>**BOSC Wealth Management Co., Ltd.** 　　　　2024.07-now
 
   Fixed Income Department - Research & Investment Summer Intern </font>
 
+  - <font color= #DCDCDC>**Daily Investment Research Support**: Facilitated the preparation of product bank account lists and bank fund transfer instructions. Developed automated investment instruction monitoring and analysis programs, as well as automated trust compliance indicator penetration analysis tools. These automation initiatives significantly enhanced daily investment research efficiency, improved accuracy, and conserved time and labor.</font>
+  
+  - <font color= #DCDCDC>**Research Endeavors**:</font>
+  
+    - <font color= #DCDCDC>**2024H1 Cash Management Product Scale Variation Research**: Conducted a comprehensive analysis of the first half-year's wealth management market, with a focus on cash management products. The study delved into macroeconomic fundamentals, policy landscapes, capital flows, and market supply-demand dynamics to explain the scale variations observed. It also offered insights into the future outlook of the cash management product market and proposed recommendations for subsequent development.</font>
+  
+    - <font color= #DCDCDC>**Machine Learning-Based Duration Rotation Strategy Research for Interest Rate Bonds**: Leveraged machine learning methods to forecast optimal weekly durations utilizing interest rate term structures, spreads, and macroeconomic data.</font>
 
 + **国海证券股份有限公司**　　　　2024.05-2024.07
 
