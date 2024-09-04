@@ -22,6 +22,8 @@ menu:
       url: https://gitee.com/sparkle28
     - name: CV
       url: /CV/
+    - name: FinData
+      url: /findata/
     - name: Resources
       url: /resources list/
 params:
