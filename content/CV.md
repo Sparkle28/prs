@@ -22,6 +22,11 @@ categories:
 </div>
 
 # 教育经历<font color= #DCDCDC>EDUCATION</font>
+
++ 2015.09~2018.06
+  - 高中/西北工业大学附属中学/理科试验班/
+  - <font color= #DCDCDC>High School/The Middle School Attached To Northwestern Polytechnical University (NPUMS)/Science Experimental Class/</font>
+
 + 2018.09~2022.06
   - 本科/北京航空航天大学 经济管理学院 经济统计学/经济学 学士/
   - <font color= #DCDCDC>Gradute/Beihang University(BUAA)/School of economics and management Economic Statistics/Bachelor of Science in Economics</font>
@@ -39,7 +44,7 @@ statistical learning,Big data essential etc.</font>
 
 一些实习笔记参见：[sparkle28.github.io](https://sparkle28.github.io/prs/)
 
-+ **上银理财有限责任公司**　　　　2024.07-now
++ **上银理财有限责任公司**　　　　2024.07-2024.09
 
   固定收益部 投研助理（暑期实习）  
   
@@ -51,7 +56,7 @@ statistical learning,Big data essential etc.</font>
 
     - 基于机器学习方法的利率债机器久期轮动策略研究：利用利率期限结构、利差与宏观数据等预测未来周频最佳久期。
 
-+ <font color= #DCDCDC>**BOSC Wealth Management Co., Ltd.** 　　　　2024.07-now
++ <font color= #DCDCDC>**BOSC Wealth Management Co., Ltd.** 　　　　2024.07-2024.09
 
   Fixed Income Department - Research & Investment Summer Intern </font>
 
